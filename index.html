@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Seller, Many Sellers — A Market Structure Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D1117; --panel:#141A22; --panel-2:#1B232E; --line:#2A3542;
+    --paper:#E9E6DA; --paper-dim:#9AA4B0;
+    --teal:#4FB0A5; --amber:#D8A44E; --rust:#C15B45;
+    --rust-glow:rgba(193,91,69,0.32); --teal-glow:rgba(79,176,165,0.22); --amber-glow:rgba(216,164,78,0.24);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--ink); color:var(--paper); font-family:'IBM Plex Sans', sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Source Serif 4', serif; font-weight:600; margin:0 0 .4em 0; color:var(--paper);}
+  .num{font-family:'IBM Plex Mono', monospace;}
+  a{color:var(--teal);}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 24px 100px;}
+
+  header.hero{padding:64px 24px 48px; border-bottom:1px solid var(--line);
+    background:radial-gradient(ellipse at 15% -10%, rgba(79,176,165,0.10), transparent 55%),
+               radial-gradient(ellipse at 90% 0%, rgba(216,164,78,0.08), transparent 50%);}
+  .hero-inner{max-width:1040px; margin:0 auto;}
+  .eyebrow{font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--paper-dim); margin-bottom:16px;}
+  h1.title{font-size:clamp(32px, 4.6vw, 50px); line-height:1.08; max-width:15ch;}
+  h1.title em{font-style:normal; color:var(--amber);}
+  .dek{max-width:58ch; font-size:16.5px; color:var(--paper-dim); margin-top:16px;}
+
+  section{padding:52px 0;}
+  section.divider{border-top:1px solid var(--line);}
+  .section-head{margin-bottom:26px;}
+  .section-head .k{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--paper-dim); margin-bottom:6px;}
+
+  /* ---- Rules ---- */
+  .rules-list{list-style:none; margin:0; padding:0; counter-reset:rule;}
+  .rules-list li{
+    counter-increment:rule;
+    display:grid; grid-template-columns:40px 1fr; gap:16px;
+    padding:16px 0; border-bottom:1px solid var(--line);
+  }
+  .rules-list li:last-child{border-bottom:none;}
+  .rules-list li::before{
+    content:counter(rule);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:15px; color:var(--amber);
+    border:1px solid var(--line); border-radius:50%;
+    width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  }
+  .rules-list .rt{padding-top:3px;}
+  .rules-list .rt b{color:var(--paper);}
+  .rules-list .rt{color:var(--paper-dim); font-size:14.5px;}
+
+  /* ---- Reference diagrams ---- */
+  .diagram-grid{display:grid; grid-template-columns:1fr 1fr; gap:28px;}
+  @media (max-width:800px){ .diagram-grid{grid-template-columns:1fr;} }
+  .diagram-card{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:20px;}
+  .diagram-card h3{font-size:17px; margin-bottom:4px;}
+  .diagram-card .sub{font-size:13px; color:var(--paper-dim); margin-bottom:14px;}
+  canvas.refchart{width:100%; height:auto; display:block; background:var(--panel-2); border-radius:4px;}
+
+  /* ---- Game / simulator ---- */
+  .sim-grid{display:grid; grid-template-columns:1.35fr 1fr; gap:32px;}
+  @media (max-width:800px){ .sim-grid{grid-template-columns:1fr;} }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:22px 22px 26px;}
+
+  .round-tag{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--paper-dim); margin-bottom:10px;}
+  .sellers-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; min-height:30px; align-items:center;}
+  .seller-dot{width:14px; height:14px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 2px rgba(79,176,165,0.18); transition:all .25s ease;}
+  .seller-dot.mono{width:26px; height:26px; background:var(--rust); box-shadow:0 0 0 4px var(--rust-glow);}
+
+  .narrative{
+    font-size:15px; padding:14px 16px; margin-bottom:16px;
+    background:var(--panel-2); border-left:3px solid var(--teal); border-radius:0 4px 4px 0;
+    min-height:44px; display:flex; align-items:center;
+  }
+  .narrative.mono{border-left-color:var(--rust); color:var(--rust);}
+
+  canvas#chart{width:100%; height:auto; display:block; background:var(--panel-2); border-radius:4px;}
+
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--paper-dim);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .sw{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  .game-controls{display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; align-items:center;}
+  button{font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:500; background:transparent; color:var(--paper);
+    border:1px solid var(--line); border-radius:4px; padding:10px 16px; cursor:pointer; transition:border-color .15s ease, color .15s ease;}
+  button:hover{border-color:var(--teal); color:var(--teal);}
+  button.primary{background:var(--teal); color:var(--ink); border-color:var(--teal); font-weight:600;}
+  button.primary:hover{opacity:.88; color:var(--ink);}
+  button.danger{border-color:var(--rust); color:var(--rust);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+
+  .adv-toggle{margin-top:18px; font-size:13px; color:var(--paper-dim);}
+  .adv-toggle summary{cursor:pointer; color:var(--teal);}
+  .slider-row{margin-top:14px;}
+  .slider-row label{font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--paper-dim); display:flex; justify-content:space-between;}
+  input[type=range]{width:100%; margin-top:8px; accent-color:var(--teal);}
+
+  .mode-flag{display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:12px; padding:4px 10px; border-radius:3px;
+    border:1px solid var(--teal); color:var(--teal); margin-bottom:18px;}
+  .mode-flag.mono{border-color:var(--rust); color:var(--rust);}
+  .stat{display:flex; justify-content:space-between; align-items:baseline; padding:12px 0; border-bottom:1px solid var(--line);}
+  .stat:last-child{border-bottom:none;}
+  .stat .label{font-size:14px; color:var(--paper-dim);}
+  .stat .value{font-family:'IBM Plex Mono', monospace; font-size:19px; font-weight:600;}
+  .stat .value.rust{color:var(--rust);}
+  .stat .value.teal{color:var(--teal);}
+  .stat .sub{font-size:11.5px; color:var(--paper-dim); display:block; margin-top:2px;}
+
+  .note{margin-top:18px; padding:14px 16px; background:var(--panel-2); border-left:3px solid var(--amber);
+    font-size:13.5px; color:var(--paper-dim); border-radius:0 4px 4px 0;}
+
+  .formula-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:6px; overflow:hidden;}
+  @media (max-width:700px){ .formula-grid{grid-template-columns:1fr;} }
+  .formula-cell{background:var(--panel); padding:22px;}
+  .formula-cell h3{font-size:17px; margin-bottom:10px;}
+  .formula-cell .eq{font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--teal); background:var(--panel-2);
+    padding:8px 10px; border-radius:4px; display:inline-block; margin:4px 0 10px;}
+  .formula-cell p{font-size:14px; color:var(--paper-dim); margin:0;}
+
+  .quiz-card{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:24px; margin-bottom:16px;}
+  .quiz-q{font-size:16px; margin-bottom:14px; font-weight:500;}
+  .quiz-opts{display:flex; flex-direction:column; gap:8px;}
+  .quiz-opt{text-align:left; padding:10px 14px; border-radius:4px;}
+  .quiz-opt.correct{border-color:var(--teal); color:var(--teal); background:var(--teal-glow);}
+  .quiz-opt.wrong{border-color:var(--rust); color:var(--rust); background:var(--rust-glow);}
+  .quiz-feedback{margin-top:12px; font-size:13.5px; color:var(--paper-dim); display:none;}
+  .score-bar{display:flex; justify-content:space-between; align-items:center; font-family:'IBM Plex Mono', monospace;
+    font-size:14px; color:var(--paper-dim); margin-bottom:20px;}
+  .score-bar .best{color:var(--amber);}
+
+  footer{padding:40px 24px; text-align:center; color:var(--paper-dim); font-size:13px; border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">MARKET STRUCTURE GAME — MICROECONOMICS</div>
+    <h1 class="title">Twenty sellers set a price. <em>One seller sets it too.</em></h1>
+    <p class="dek">Merge the market down from 20 competing sellers to a single monopolist, one round at a time, and watch price, output and welfare react — right up until the last seller standing changes the rules of the game.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <div class="section-head">
+      <div class="k">RULES</div>
+      <h2>How this works</h2>
+    </div>
+    <ul class="rules-list">
+      <li><div class="rt"><b>The setup.</b> One product, one group of buyers. Their total willingness to buy is fixed: <span class="num">P = 100 − Q</span> — the higher the price, the less they buy.</div></li>
+      <li><div class="rt"><b>The cost.</b> Producing the product gets more expensive at the margin: the industry's marginal cost is <span class="num">MC = 10 + 0.5Q</span>. This cost curve never changes — only who controls pricing changes.</div></li>
+      <li><div class="rt"><b>Rule for 2+ sellers (perfect competition).</b> No single seller can move the price alone — if they charge more, buyers just go to a rival. So every seller keeps producing until price equals marginal cost.</div></li>
+      <li><div class="rt"><b>Rule for exactly 1 seller (monopoly).</b> With no rival to lose customers to, the seller instead restricts output to the level where marginal revenue equals marginal cost — this lets them charge more by selling less.</div></li>
+      <li><div class="rt"><b>Play the game.</b> Start at 20 sellers. Click "Merge a seller" to consolidate the market by one seller per round. Watch the chart, the price, and the shaded areas as you approach the final round.</div></li>
+      <li><div class="rt"><b>Read the chart.</b> Grey line = demand. Amber line = marginal cost. Red dashed line = marginal revenue (appears only in monopoly). Teal shading = consumer surplus. Amber shading = producer surplus / profit. Red shading = deadweight loss — value that simply disappears.</div></li>
+    </ul>
+  </section>
+
+  <section class="divider">
+    <div class="section-head">
+      <div class="k">THE CURVES</div>
+      <h2>Reference diagrams</h2>
+    </div>
+    <div class="diagram-grid">
+      <div class="diagram-card">
+        <h3>Perfect competition</h3>
+        <div class="sub">Many price-taking sellers — price settles where demand meets marginal cost.</div>
+        <canvas class="refchart" id="refComp" width="480" height="380"></canvas>
+      </div>
+      <div class="diagram-card">
+        <h3>Monopoly</h3>
+        <div class="sub">One seller — output is set where marginal revenue meets marginal cost.</div>
+        <canvas class="refchart" id="refMono" width="480" height="380"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="divider">
+    <div class="section-head">
+      <div class="k">PLAY</div>
+      <h2>The game</h2>
+    </div>
+
+    <div class="sim-grid">
+      <div class="panel">
+        <div class="round-tag" id="roundTag">ROUND 1 — 20 sellers remain</div>
+        <div class="sellers-row" id="sellersRow"></div>
+        <div class="narrative" id="narrative">Twenty independent sellers. None of them can move the price alone.</div>
+
+        <canvas id="chart" width="640" height="420"></canvas>
+
+        <div class="legend">
+          <span><span class="sw" style="background:var(--paper-dim)"></span>Demand</span>
+          <span><span class="sw" style="background:var(--amber)"></span>Marginal cost</span>
+          <span><span class="sw" style="background:var(--rust)"></span>Marginal revenue (monopoly)</span>
+          <span><span class="sw" style="background:var(--teal-glow); border:1px solid var(--teal)"></span>Consumer surplus</span>
+          <span><span class="sw" style="background:var(--amber-glow); border:1px solid var(--amber)"></span>Producer surplus</span>
+          <span><span class="sw" style="background:var(--rust-glow); border:1px solid var(--rust)"></span>Deadweight loss</span>
+        </div>
+
+        <div class="game-controls">
+          <button class="primary" id="mergeBtn">Merge a seller ▸</button>
+          <button id="undoBtn">◂ Undo merge</button>
+          <button class="danger" id="resetBtn">Reset game</button>
+          <button id="autoBtn">▸▸ Auto-play</button>
+        </div>
+
+        <details class="adv-toggle">
+          <summary>Or jump straight to any seller count</summary>
+          <div class="slider-row">
+            <label><span>Number of sellers</span><span class="num" id="sliderVal">20</span></label>
+            <input type="range" id="nSlider" min="1" max="20" value="20" step="1">
+          </div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <div class="mode-flag" id="modeFlag">PERFECT COMPETITION</div>
+        <div class="stat"><span class="label">Equilibrium price</span><span class="value teal" id="statP">₹40.00</span></div>
+        <div class="stat"><span class="label">Equilibrium quantity</span><span class="value" id="statQ">60</span></div>
+        <div class="stat"><span class="label">Consumer surplus</span><span class="value teal" id="statCS">₹1,800</span></div>
+        <div class="stat"><span class="label">Producer surplus / profit</span><span class="value" id="statPS">₹900</span></div>
+        <div class="stat"><span class="label">Deadweight loss</span><span class="value" id="statDWL">₹0</span></div>
+        <div class="stat"><span class="label">Lerner index <span class="sub">(P − MC) / P</span></span><span class="value" id="statLerner">0.00</span></div>
+        <div class="note" id="statNote">With many price-taking sellers, price is pushed down to marginal cost — no single firm can charge more without losing all its customers to a rival.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="divider">
+    <div class="section-head">
+      <div class="k">THE MODEL</div>
+      <h2>What's actually being computed</h2>
+    </div>
+    <div class="formula-grid">
+      <div class="formula-cell">
+        <h3>Demand (fixed)</h3>
+        <div class="eq">P = 100 − Q</div>
+        <p>The same 100 buyers face the market regardless of how many sellers show up — only seller behaviour changes.</p>
+      </div>
+      <div class="formula-cell">
+        <h3>Industry marginal cost (fixed)</h3>
+        <div class="eq">MC(Q) = 10 + 0.5Q</div>
+        <p>The true cost of producing one more unit, industry-wide. It doesn't change with the number of firms — what changes is who gets to set the price.</p>
+      </div>
+      <div class="formula-cell">
+        <h3>Perfect competition (n ≥ 2)</h3>
+        <div class="eq">Set P = MC(Q)</div>
+        <p>Price-taking firms keep producing until price no longer covers the next unit's cost. Solving 100−Q = 10+0.5Q gives Q = 60, P = ₹40 — the same outcome whether there are 2 rivals or 20.</p>
+      </div>
+      <div class="formula-cell">
+        <h3>Monopoly (n = 1)</h3>
+        <div class="eq">Set MR = MC, MR = 100 − 2Q</div>
+        <p>A single seller restricts output to raise price. Solving 100−2Q = 10+0.5Q gives Q = 36, P = ₹64 — less output, sold at a higher price.</p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:20px;">Simplifying assumptions for the classroom: linear demand and cost, no fixed costs (so producer surplus = profit), and the same industry cost curve under both market structures — isolating the effect of <em style="color:var(--paper); font-style:normal;">market power</em> rather than cost differences between the two worlds.</div>
+  </section>
+
+  <section class="divider">
+    <div class="section-head">
+      <div class="k">CHECK YOURSELF</div>
+      <h2>Predict before you peek</h2>
+    </div>
+    <div class="score-bar">
+      <span>Score: <span class="num" id="quizScore">0</span> / 3</span>
+      <span>Best: <span class="num best" id="quizBest">—</span></span>
+    </div>
+    <div id="quizContainer"></div>
+  </section>
+
+</div>
+
+<footer>Market Structure Game — built for the Perfect Competition vs. Monopoly economics assignment.</footer>
+
+<script>
+/* ---------------- Economic model ---------------- */
+const DEMAND_INT = 100;
+const MC_INT = 10, MC_SLOPE = 0.5;
+function mc(q){ return MC_INT + MC_SLOPE*q; }
+function demand(q){ return DEMAND_INT - q; }
+const Qc = 90/(1+MC_SLOPE), Pc = demand(Qc); // 60, 40
+
+function marketFor(n){
+  if(n === 1){
+    const Q = 90/(2+MC_SLOPE), P = demand(Q);
+    const TC = MC_INT*Q + (MC_SLOPE/2)*Q*Q;
+    const PS = P*Q - TC;
+    const CS = 0.5*Q*(DEMAND_INT-P);
+    const DWL = 0.5*(Qc-Q)*(P - mc(Q));
+    const lerner = (P - mc(Q)) / P;
+    return {n, mode:'monopoly', Q, P, CS, PS, DWL, lerner};
+  } else {
+    const Q = Qc, P = Pc;
+    const TC = MC_INT*Q + (MC_SLOPE/2)*Q*Q;
+    const PS = P*Q - TC;
+    const CS = 0.5*Q*(DEMAND_INT-P);
+    return {n, mode:'competition', Q, P, CS, PS, DWL:0, lerner:0};
+  }
+}
+
+/* ---------------- Shared geometry helpers ---------------- */
+function makeMapper(canvas, pad){
+  const W = canvas.width, H = canvas.height;
+  return function toXY(q,p){
+    const x = pad.l + (q/100) * (W-pad.l-pad.r);
+    const y = (H-pad.b) - (p/100) * (H-pad.t-pad.b);
+    return [x,y];
+  };
+}
+function centroid(pts){
+  const q = pts.reduce((s,p)=>s+p[0],0)/pts.length;
+  const p = pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  return [q,p];
+}
+
+/* ---------------- Interactive game chart ---------------- */
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+const PAD = {l:52, r:20, t:20, b:44};
+const toXY = makeMapper(canvas, PAD);
+
+function fillPoly(ctx2, pts, color){
+  ctx2.beginPath();
+  pts.forEach((p,i)=> i===0 ? ctx2.moveTo(...toXY(p[0],p[1])) : ctx2.lineTo(...toXY(p[0],p[1])));
+  ctx2.closePath(); ctx2.fillStyle = color; ctx2.fill();
+}
+
+function drawAxes(ctx2, canvas2, pad){
+  const toXY2 = makeMapper(canvas2, pad);
+  ctx2.strokeStyle = '#2A3542'; ctx2.lineWidth = 1;
+  ctx2.font = '11px IBM Plex Mono, monospace'; ctx2.fillStyle = '#9AA4B0';
+  for(let v=0; v<=100; v+=20){
+    const [gx,] = toXY2(v,0); const [,gy] = toXY2(0,v);
+    ctx2.beginPath(); ctx2.moveTo(gx, pad.t); ctx2.lineTo(gx, canvas2.height-pad.b); ctx2.stroke();
+    ctx2.beginPath(); ctx2.moveTo(pad.l, gy); ctx2.lineTo(canvas2.width-pad.r, gy); ctx2.stroke();
+    ctx2.fillText(v, gx-6, canvas2.height-pad.b+16);
+    ctx2.fillText(v, pad.l-30, gy+4);
+  }
+  ctx2.save(); ctx2.translate(14, canvas2.height/2); ctx2.rotate(-Math.PI/2);
+  ctx2.fillText('PRICE (₹)', -20, 0); ctx2.restore();
+  ctx2.fillText('QUANTITY', canvas2.width/2-30, canvas2.height-8);
+}
+
+function drawLine(ctx2, p1, p2, color, width, dash){
+  ctx2.strokeStyle = color; ctx2.lineWidth = width || 2;
+  ctx2.setLineDash(dash || []);
+  ctx2.beginPath(); ctx2.moveTo(...p1); ctx2.lineTo(...p2); ctx2.stroke();
+  ctx2.setLineDash([]);
+}
+function drawPoint(ctx2, xy, color){
+  ctx2.beginPath(); ctx2.arc(xy[0], xy[1], 5, 0, Math.PI*2);
+  ctx2.fillStyle = color; ctx2.fill();
+  ctx2.strokeStyle = '#0D1117'; ctx2.lineWidth = 2; ctx2.stroke();
+}
+
+function render(n){
+  const m = marketFor(n);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawAxes(ctx, canvas, PAD);
+
+  fillPoly(ctx, [[0,DEMAND_INT],[0,m.P],[m.Q,m.P]], 'rgba(79,176,165,0.20)');
+  fillPoly(ctx, [[0,m.P],[m.Q,m.P],[m.Q,mc(m.Q)],[0,MC_INT]], 'rgba(216,164,78,0.20)');
+  if(m.mode==='monopoly') fillPoly(ctx, [[m.Q,m.P],[m.Q,mc(m.Q)],[Qc,Pc]], 'rgba(193,91,69,0.34)');
+
+  drawLine(ctx, toXY(0,DEMAND_INT), toXY(100,0), '#9AA4B0', 2);
+  drawLine(ctx, toXY(0,MC_INT), toXY(100, mc(100)), '#D8A44E', 2);
+  if(m.mode==='monopoly'){
+    drawLine(ctx, toXY(0,DEMAND_INT), toXY(50,0), '#C15B45', 2, [5,4]);
+    drawPoint(ctx, toXY(Qc,Pc), '#5C6672');
+  }
+  drawPoint(ctx, toXY(m.Q,m.P), m.mode==='monopoly' ? '#C15B45' : '#4FB0A5');
+
+  updateReadout(m);
+  updateSellers(n);
+  updateNarrative(n, m);
+  slider.value = n;
+  document.getElementById('sliderVal').textContent = n;
+  mergeBtn.disabled = (n === 1);
+  document.getElementById('roundTag').textContent = 'ROUND ' + (21-n) + ' — ' + n + (n===1 ? ' seller remains' : ' sellers remain');
+}
+
+/* ---------------- Static annotated reference diagrams ---------------- */
+function drawAnnotated(canvasId, mode){
+  const c = document.getElementById(canvasId);
+  const cx = c.getContext('2d');
+  const pad = {l:56, r:24, t:24, b:46};
+  const toXY2 = makeMapper(c, pad);
+  const m = marketFor(mode==='monopoly' ? 1 : 20);
+
+  drawAxes(cx, c, pad);
+
+  const fillPoly2 = (pts, color) => {
+    cx.beginPath();
+    pts.forEach((p,i)=> i===0 ? cx.moveTo(...toXY2(p[0],p[1])) : cx.lineTo(...toXY2(p[0],p[1])));
+    cx.closePath(); cx.fillStyle = color; cx.fill();
+  };
+  const label = (q,p,text,color,align) => {
+    const [x,y] = toXY2(q,p);
+    cx.font = '600 12px IBM Plex Mono, monospace';
+    cx.fillStyle = color;
+    cx.textAlign = align || 'left';
+    cx.fillText(text, x, y);
+    cx.textAlign = 'left';
+  };
+
+  fillPoly2([[0,DEMAND_INT],[0,m.P],[m.Q,m.P]], 'rgba(79,176,165,0.22)');
+  fillPoly2([[0,m.P],[m.Q,m.P],[m.Q,mc(m.Q)],[0,MC_INT]], 'rgba(216,164,78,0.22)');
+  if(mode==='monopoly') fillPoly2([[m.Q,m.P],[m.Q,mc(m.Q)],[Qc,Pc]], 'rgba(193,91,69,0.38)');
+
+  drawLine(cx, toXY2(0,DEMAND_INT), toXY2(100,0), '#9AA4B0', 2);
+  drawLine(cx, toXY2(0,MC_INT), toXY2(100, mc(100)), '#D8A44E', 2);
+  if(mode==='monopoly'){
+    drawLine(cx, toXY2(0,DEMAND_INT), toXY2(50,0), '#C15B45', 2, [5,4]);
+    drawPoint(cx, toXY2(Qc,Pc), '#5C6672');
+    label(Qc+2, Pc+3, 'competitive P*', '#5C6672');
+  }
+  drawPoint(cx, toXY2(m.Q,m.P), mode==='monopoly' ? '#C15B45' : '#4FB0A5');
+
+  // curve labels
+  label(80, demand(80)+4, 'Demand (D)', '#C9CED6');
+  label(70, mc(70)-6, 'Supply = MC', '#D8A44E');
+  if(mode==='monopoly') label(28, demand(28)+40, 'MR', '#C15B45');
+
+  // equilibrium label
+  const eqText = mode==='monopoly'
+    ? 'E: Q=' + m.Q.toFixed(0) + ', P=₹' + m.P.toFixed(0)
+    : 'E: Q*=' + m.Q.toFixed(0) + ', P*=₹' + m.P.toFixed(0);
+  label(m.Q+3, m.P-8, eqText, mode==='monopoly' ? '#C15B45' : '#4FB0A5');
+
+  // region labels at centroid
+  const csC = centroid([[0,DEMAND_INT],[0,m.P],[m.Q,m.P]]);
+  label(csC[0], csC[1], 'CS', '#4FB0A5', 'center');
+  const psC = centroid([[0,m.P],[m.Q,m.P],[m.Q,mc(m.Q)],[0,MC_INT]]);
+  label(psC[0], psC[1], 'PS', '#D8A44E', 'center');
+  if(mode==='monopoly'){
+    const dwlC = centroid([[m.Q,m.P],[m.Q,mc(m.Q)],[Qc,Pc]]);
+    label(dwlC[0], dwlC[1]+2, 'DWL', '#C15B45', 'center');
+  }
+}
+drawAnnotated('refComp', 'competition');
+drawAnnotated('refMono', 'monopoly');
+
+/* ---------------- UI wiring ---------------- */
+const money = v => '₹' + v.toLocaleString('en-IN', {maximumFractionDigits:0});
+
+function updateReadout(m){
+  document.getElementById('modeFlag').textContent = m.mode === 'monopoly' ? 'MONOPOLY' : 'PERFECT COMPETITION';
+  document.getElementById('modeFlag').className = 'mode-flag' + (m.mode==='monopoly' ? ' mono' : '');
+  document.getElementById('statP').textContent = money(m.P);
+  document.getElementById('statQ').textContent = m.Q.toFixed(0);
+  document.getElementById('statCS').textContent = money(m.CS);
+  document.getElementById('statPS').textContent = money(m.PS);
+  document.getElementById('statDWL').textContent = money(m.DWL);
+  document.getElementById('statDWL').className = 'value' + (m.DWL>0 ? ' rust' : '');
+  document.getElementById('statLerner').textContent = m.lerner.toFixed(2);
+  document.getElementById('statNote').textContent = m.mode === 'monopoly'
+    ? 'The sole seller restricts output below the competitive level to push price up — the shaded red triangle is value that simply vanishes: trades that would have made both sides better off, but never happen.'
+    : 'With many price-taking sellers, price is pushed down to marginal cost — no single firm can charge more without losing all its customers to a rival.';
+}
+
+function updateSellers(n){
+  const row = document.getElementById('sellersRow');
+  row.innerHTML = '';
+  if(n === 1){
+    const d = document.createElement('div'); d.className = 'seller-dot mono'; row.appendChild(d);
+  } else {
+    for(let i=0;i<n;i++){
+      const d = document.createElement('div'); d.className = 'seller-dot'; row.appendChild(d);
+    }
+  }
+}
+
+function updateNarrative(n, m){
+  const el = document.getElementById('narrative');
+  el.className = 'narrative' + (m.mode==='monopoly' ? ' mono' : '');
+  if(n === 1){
+    el.textContent = 'MONOPOLY. The last independent seller just disappeared. Price jumps to ₹64, output falls to 36 — and a deadweight-loss triangle appears: trades that used to happen, don\'t anymore.';
+  } else if(n >= 10){
+    el.textContent = n + ' independent sellers. Plenty of competition — try to charge more than ₹40 and buyers simply walk to a rival.';
+  } else if(n >= 2){
+    el.textContent = 'Down to ' + n + ' sellers, but still competitive: as long as there\'s more than one price-taker, price stays pinned at marginal cost.';
+  }
+}
+
+const slider = document.getElementById('nSlider');
+const mergeBtn = document.getElementById('mergeBtn');
+let currentN = 20;
+let history = [];
+
+slider.addEventListener('input', () => { currentN = parseInt(slider.value); history = []; render(currentN); });
+
+mergeBtn.addEventListener('click', () => {
+  if(currentN <= 1) return;
+  history.push(currentN);
+  currentN -= 1;
+  render(currentN);
+});
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if(history.length === 0) return;
+  currentN = history.pop();
+  render(currentN);
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  currentN = 20; history = []; render(20);
+});
+
+let autoTimer = null;
+document.getElementById('autoBtn').addEventListener('click', () => {
+  const btn = document.getElementById('autoBtn');
+  if(autoTimer) return;
+  btn.disabled = true;
+  currentN = 20; history = []; render(20);
+  autoTimer = setInterval(() => {
+    if(currentN <= 1){ clearInterval(autoTimer); autoTimer = null; btn.disabled = false; return; }
+    history.push(currentN);
+    currentN -= 1;
+    render(currentN);
+  }, 500);
+});
+
+render(20);
+
+/* ---------------- Quiz ---------------- */
+const QUESTIONS = [
+  {
+    q: 'A perfectly competitive industry has 20 firms. Ten of them are bought out and merge, leaving 10 independent firms. What happens to the market price?',
+    opts: ['It roughly doubles', 'It stays the same', 'It falls to zero'],
+    correct: 1,
+    explain: 'As long as firms are still price-takers with no market power, price stays pinned at marginal cost — 10 competing firms is still "competition."'
+  },
+  {
+    q: 'That same industry is bought out entirely by a single firm. What happens to output compared to the competitive outcome?',
+    opts: ['Output rises to meet more demand', 'Output falls below the competitive level', 'Output is unchanged'],
+    correct: 1,
+    explain: 'A monopolist maximizes profit at MR = MC, not P = MC. Since MR sits below demand, the profit-maximizing quantity is always lower than the competitive quantity.'
+  },
+  {
+    q: 'Deadweight loss under monopoly represents...',
+    opts: ['Money transferred from consumers to the monopolist', 'Trades that would have benefited both sides but never happen', 'The monopolist\'s total profit'],
+    correct: 1,
+    explain: 'The transfer from consumers to the monopolist (higher price on units still sold) is a redistribution, not a loss. Deadweight loss is specifically the surplus from units that go unproduced because output was restricted.'
+  }
+];
+
+let score = 0, answered = 0;
+const best = localStorage.getItem('mss_best');
+if(best) document.getElementById('quizBest').textContent = best + ' / 3';
+
+function buildQuiz(){
+  const c = document.getElementById('quizContainer');
+  QUESTIONS.forEach((item, qi) => {
+    const card = document.createElement('div'); card.className = 'quiz-card';
+    const qEl = document.createElement('div'); qEl.className = 'quiz-q';
+    qEl.textContent = (qi+1) + '. ' + item.q; card.appendChild(qEl);
+    const optsEl = document.createElement('div'); optsEl.className = 'quiz-opts';
+    const fb = document.createElement('div'); fb.className = 'quiz-feedback'; fb.textContent = item.explain;
+
+    item.opts.forEach((optText, oi) => {
+      const b = document.createElement('button'); b.className = 'quiz-opt'; b.textContent = optText;
+      b.addEventListener('click', () => {
+        if(b.dataset.locked) return;
+        [...optsEl.children].forEach(x => x.dataset.locked = '1');
+        if(oi === item.correct){ b.classList.add('correct'); score++; }
+        else { b.classList.add('wrong'); optsEl.children[item.correct].classList.add('correct'); }
+        fb.style.display = 'block';
+        document.getElementById('quizScore').textContent = score;
+        answered++;
+        if(answered === QUESTIONS.length){
+          const prevBest = parseInt(localStorage.getItem('mss_best') || '0');
+          if(score > prevBest){ localStorage.setItem('mss_best', score); document.getElementById('quizBest').textContent = score + ' / 3'; }
+        }
+      });
+      optsEl.appendChild(b);
+    });
+    card.appendChild(optsEl); card.appendChild(fb); c.appendChild(card);
+  });
+}
+buildQuiz();
+</script>
+</body>
+</html>
